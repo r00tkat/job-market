@@ -3,7 +3,7 @@
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, func, select
+from sqlalchemy import ColumnElement, Select, any_, func, literal, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -27,8 +27,10 @@ async def _resolve_skill_id(session: AsyncSession, name: str) -> uuid.UUID | Non
     skill_id = result.scalar_one_or_none()
     if skill_id is not None:
         return skill_id
-    result = await session.execute(select(Skill.id).where(Skill.aliases.any(lowered)).limit(1))
-    return result.scalar_one_or_none()
+    alias_result = await session.execute(
+        select(Skill.id).where(literal(lowered) == any_(Skill.aliases)).limit(1)
+    )
+    return alias_result.scalar_one_or_none()
 
 
 def _serialize_job(job: Job) -> JobOut:
@@ -87,7 +89,7 @@ async def list_jobs(
             detail=f"Invalid employment_type {employment_type!r}",
         )
 
-    filters = [Job.is_duplicate.is_(False)]
+    filters: list[ColumnElement[bool]] = [Job.is_duplicate.is_(False)]
     if source is not None:
         filters.append(Job.source == source)
     if remote_type is not None:

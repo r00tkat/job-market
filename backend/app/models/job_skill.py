@@ -1,5 +1,6 @@
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import CheckConstraint, ForeignKey, Numeric, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -7,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.skill import Skill
+
+if TYPE_CHECKING:
+    from app.models.job import Job
 
 
 class JobSkill(Base):
@@ -25,5 +29,5 @@ class JobSkill(Base):
     matched_text: Mapped[str] = mapped_column(Text, nullable=False)
     match_type: Mapped[str] = mapped_column(Text, nullable=False)
 
-    job: Mapped["Job"] = relationship(back_populates="job_skills")  # noqa: F821
+    job: Mapped["Job"] = relationship(back_populates="job_skills")
     skill: Mapped[Skill] = relationship()

@@ -75,7 +75,7 @@ async def upsert_job(
 
     # Pass 2 - content hash against recent canonical jobs.
     window_start = now - timedelta(days=CONTENT_HASH_WINDOW_DAYS)
-    result = await session.execute(
+    hash_result = await session.execute(
         select(Job.id)
         .where(
             Job.content_hash == normalized.content_hash,
@@ -84,7 +84,7 @@ async def upsert_job(
         )
         .limit(1)
     )
-    canonical_match = result.scalar_one_or_none()
+    canonical_match = hash_result.scalar_one_or_none()
 
     job = Job(
         id=uuid.uuid4(),

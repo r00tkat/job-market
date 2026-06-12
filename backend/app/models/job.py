@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Text, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
@@ -8,6 +8,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.company import Company
+
+if TYPE_CHECKING:
+    from app.models.job_skill import JobSkill
 
 
 def _utcnow() -> datetime:
@@ -60,6 +63,6 @@ class Job(Base):
     )
 
     company: Mapped[Company] = relationship()
-    job_skills: Mapped[list["JobSkill"]] = relationship(  # noqa: F821
+    job_skills: Mapped[list["JobSkill"]] = relationship(
         back_populates="job", cascade="all, delete-orphan"
     )
