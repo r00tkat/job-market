@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Job Market Intelligence</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='20' fill='%236c8cff'/%3E%3Ctext x='50' y='68' font-size='52' text-anchor='middle' fill='white' font-family='sans-serif' font-weight='bold'%3EJ%3C/text%3E%3C/svg%3E" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #121a30;
+    --panel-2: #182242;
+    --border: #25315c;
+    --text: #e8ecf8;
+    --muted: #93a0c4;
+    --accent: #6c8cff;
+    --accent-2: #45d6a4;
+    --up: #45d6a4;
+    --down: #ff6b81;
+    --new: #ffc94d;
+    --stable: #93a0c4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 24px 20px 60px; }
+
+  header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 24px; }
+  h1 { font-size: 1.5rem; font-weight: 700; }
+  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent-2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .badge { display: inline-flex; align-items: center; gap: 8px; background: var(--panel); border: 1px solid var(--border); border-radius: 99px; padding: 6px 14px; font-size: .85rem; color: var(--muted); }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
+  .dot.ok { background: var(--up); box-shadow: 0 0 8px var(--up); }
+  .dot.degraded { background: var(--new); box-shadow: 0 0 8px var(--new); }
+  .dot.error { background: var(--down); box-shadow: 0 0 8px var(--down); }
+
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 14px; margin-bottom: 28px; }
+  .stat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; }
+  .stat .label { font-size: .78rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  .stat .value { font-size: 1.6rem; font-weight: 700; margin-top: 4px; }
+
+  .grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 18px; margin-bottom: 28px; }
+  @media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; }
+  .panel h2 { font-size: 1.05rem; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+
+  select, input[type="text"] {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 7px 10px; font-size: .85rem; outline: none;
+  }
+  select:focus, input:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent); color: #fff; border: none; border-radius: 8px;
+    padding: 7px 14px; font-size: .85rem; cursor: pointer; font-weight: 600;
+  }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .4; cursor: default; }
+  button.ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+  .chart-box { position: relative; height: 360px; }
+
+  .trend-list { list-style: none; max-height: 360px; overflow-y: auto; }
+  .trend-list li { display: flex; align-items: center; justify-content: space-between; padding: 8px 6px; border-bottom: 1px solid var(--border); font-size: .9rem; }
+  .trend-list li:last-child { border-bottom: none; }
+  .trend-list .rank { color: var(--muted); width: 28px; }
+  .trend-list .name { flex: 1; font-weight: 600; }
+  .trend-list .cat { color: var(--muted); font-size: .75rem; margin-left: 8px; }
+  .trend-list .count { margin: 0 12px; color: var(--muted); }
+  .tr { font-size: .78rem; font-weight: 700; padding: 2px 10px; border-radius: 99px; }
+  .tr.up { color: var(--up); background: rgba(69,214,164,.12); }
+  .tr.down { color: var(--down); background: rgba(255,107,129,.12); }
+  .tr.new { color: var(--new); background: rgba(255,201,77,.12); }
+  .tr.stable { color: var(--stable); background: rgba(147,160,196,.12); }
+
+  table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+  th { text-align: left; color: var(--muted); font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; padding: 10px 8px; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 8px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:hover td { background: rgba(108,140,255,.05); }
+  td a { color: var(--accent); text-decoration: none; font-weight: 600; }
+  td a:hover { text-decoration: underline; }
+  .company { color: var(--muted); font-size: .82rem; }
+  .chip { display: inline-block; background: var(--panel-2); border: 1px solid var(--border); border-radius: 99px; padding: 1px 9px; font-size: .73rem; margin: 2px 3px 0 0; color: var(--muted); }
+  .salary { white-space: nowrap; }
+  .pager { display: flex; align-items: center; gap: 12px; margin-top: 14px; justify-content: flex-end; color: var(--muted); font-size: .85rem; }
+  .empty { text-align: center; color: var(--muted); padding: 30px; }
+
+  footer { margin-top: 36px; color: var(--muted); font-size: .8rem; text-align: center; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Job Market <span>Intelligence</span></h1>
+    <div class="badge"><span class="dot" id="health-dot"></span><span id="health-text">checking&hellip;</span></div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><div class="label">Jobs tracked</div><div class="value" id="stat-jobs">&ndash;</div></div>
+    <div class="stat"><div class="label">Last scrape</div><div class="value" id="stat-scrape" style="font-size:1.05rem">&ndash;</div></div>
+    <div class="stat"><div class="label">Data freshness</div><div class="value" id="stat-fresh" style="font-size:1.05rem">&ndash;</div></div>
+    <div class="stat"><div class="label">DB latency</div><div class="value" id="stat-latency">&ndash;</div></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel">
+      <h2>Top skills
+        <span>
+          <select id="skill-days">
+            <option value="7">7 days</option>
+            <option value="30" selected>30 days</option>
+            <option value="90">90 days</option>
+          </select>
+          <select id="skill-category">
+            <option value="">All categories</option>
+            <option value="languages">Languages</option>
+            <option value="frameworks">Frameworks</option>
+            <option value="cloud">Cloud</option>
+            <option value="databases">Databases</option>
+            <option value="infrastructure">Infrastructure</option>
+            <option value="data">Data</option>
+            <option value="ml_adjacent">ML</option>
+          </select>
+        </span>
+      </h2>
+      <div class="chart-box"><canvas id="skills-chart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Demand trends</h2>
+      <ul class="trend-list" id="trend-list"></ul>
+    </div>
+  </section>
+
+  <section class="panel">
+    <h2>Job board</h2>
+    <div class="controls">
+      <input type="text" id="f-skill" placeholder="Skill (e.g. python, k8s)" />
+      <select id="f-remote">
+        <option value="">Any location type</option>
+        <option value="remote">Remote</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="onsite">Onsite</option>
+      </select>
+      <select id="f-employment">
+        <option value="">Any employment</option>
+        <option value="full_time">Full-time</option>
+        <option value="part_time">Part-time</option>
+        <option value="contract">Contract</option>
+        <option value="internship">Internship</option>
+      </select>
+      <select id="f-sort">
+        <option value="-posted_at">Newest first</option>
+        <option value="posted_at">Oldest first</option>
+        <option value="title">Title A&ndash;Z</option>
+        <option value="-title">Title Z&ndash;A</option>
+      </select>
+      <button id="f-apply">Apply</button>
+      <button id="f-reset" class="ghost">Reset</button>
+    </div>
+    <div id="jobs-area">
+      <table>
+        <thead>
+          <tr><th>Role</th><th>Skills</th><th>Type</th><th class="salary">Salary</th><th>Posted</th></tr>
+        </thead>
+        <tbody id="jobs-body"></tbody>
+      </table>
+      <div class="empty" id="jobs-empty" style="display:none">No jobs match these filters.</div>
+    </div>
+    <div class="pager">
+      <span id="page-info"></span>
+      <button id="prev" class="ghost">&larr; Prev</button>
+      <button id="next" class="ghost">Next &rarr;</button>
+    </div>
+  </section>
+
+  <footer>
+    Job data sourced from <a href="https://remoteok.com" target="_blank" rel="noopener">RemoteOK</a>.
+    Each listing links back to the original RemoteOK posting.
+  </footer>
+</div>
+
+<script>
+"use strict";
+
+const API = ""; // same origin as the FastAPI app
+const PAGE_SIZE = 10;
+let offset = 0;
+let total = 0;
+let chart = null;
+
+const $ = (id) => document.getElementById(id);
+
+async function fetchJSON(path) {
+  const res = await fetch(API + path);
+  if (!res.ok) throw new Error("HTTP " + res.status + " for " + path);
+  return res.json();
+}
+
+function esc(value) {
+  const div = document.createElement("div");
+  div.textContent = value == null ? "" : String(value);
+  return div.innerHTML;
+}
+
+function fmtDate(iso) {
+  if (!iso) return "–";
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
+function fmtAgo(iso) {
+  if (!iso) return "–";
+  const hours = (Date.now() - new Date(iso).getTime()) / 36e5;
+  if (hours < 1) return Math.max(1, Math.round(hours * 60)) + " min ago";
+  if (hours < 48) return Math.round(hours) + " h ago";
+  return Math.round(hours / 24) + " days ago";
+}
+
+function fmtSalary(min, max, currency) {
+  if (min == null && max == null) return "–";
+  const k = (n) => "$" + Math.round(n / 1000) + "k";
+  if (min != null && max != null) return k(min) + "–" + k(max);
+  return k(min != null ? min : max) + "+";
+}
+
+// ---------------------------------------------------------------- health
+
+async function loadHealth() {
+  const dot = $("health-dot"), text = $("health-text");
+  try {
+    const res = await fetch(API + "/health");
+    const h = await res.json();
+    dot.className = "dot " + (h.status || "error");
+    text.textContent = "API " + h.status;
+    $("stat-jobs").textContent = h.jobs_total != null ? h.jobs_total.toLocaleString() : "–";
+    $("stat-scrape").textContent = fmtAgo(h.last_scrape_at);
+    $("stat-fresh").textContent = h.freshness_ok ? "Fresh ✓" : "Stale";
+    $("stat-fresh").style.color = h.freshness_ok ? "var(--up)" : "var(--down)";
+    $("stat-latency").textContent = h.db_latency_ms != null ? h.db_latency_ms + " ms" : "–";
+  } catch (err) {
+    dot.className = "dot error";
+    text.textContent = "API unreachable";
+  }
+}
+
+// ---------------------------------------------------------------- top skills
+
+async function loadTopSkills() {
+  const days = $("skill-days").value;
+  const category = $("skill-category").value;
+  let url = "/top-skills?limit=15&days=" + days;
+  if (category) url += "&category=" + encodeURIComponent(category);
+  let data;
+  try {
+    data = await fetchJSON(url);
+  } catch (err) {
+    return;
+  }
+  const items = data.items || [];
+
+  // Chart
+  const ctx = $("skills-chart").getContext("2d");
+  if (chart) chart.destroy();
+  chart = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: items.map((i) => i.skill),
+      datasets: [{
+        data: items.map((i) => i.count),
+        backgroundColor: "rgba(108,140,255,.75)",
+        borderRadius: 6,
+      }],
+    },
+    options: {
+      indexAxis: "y",
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: "rgba(255,255,255,.06)" }, ticks: { color: "#93a0c4", precision: 0 } },
+        y: { grid: { display: false }, ticks: { color: "#e8ecf8" } },
+      },
+    },
+  });
+
+  // Trend list
+  const list = $("trend-list");
+  list.innerHTML = "";
+  if (!items.length) {
+    list.innerHTML = '<li class="empty">No skill data in this window.</li>';
+    return;
+  }
+  for (const item of items) {
+    const arrow = { up: "▲ up", down: "▼ down", new: "✨ new", stable: "→ stable" }[item.trend_direction] || item.trend_direction;
+    const prev = item.prev_count == null ? "" : " (was " + item.prev_count + ")";
+    list.insertAdjacentHTML("beforeend",
+      '<li><span class="rank">#' + item.rank + '</span>' +
+      '<span class="name">' + esc(item.skill) + '<span class="cat">' + esc(item.category) + "</span></span>" +
+      '<span class="count">' + item.count + " jobs" + esc(prev) + "</span>" +
+      '<span class="tr ' + esc(item.trend_direction) + '">' + arrow + "</span></li>");
+  }
+}
+
+// ---------------------------------------------------------------- job board
+
+function jobParams() {
+  const params = new URLSearchParams();
+  params.set("limit", PAGE_SIZE);
+  params.set("offset", offset);
+  params.set("sort", $("f-sort").value);
+  const skill = $("f-skill").value.trim();
+  if (skill) params.set("skill", skill);
+  if ($("f-remote").value) params.set("remote_type", $("f-remote").value);
+  if ($("f-employment").value) params.set("employment_type", $("f-employment").value);
+  return params.toString();
+}
+
+async function loadJobs() {
+  let data;
+  try {
+    data = await fetchJSON("/jobs?" + jobParams());
+  } catch (err) {
+    $("jobs-empty").style.display = "block";
+    $("jobs-empty").textContent = "Could not load jobs — is the API running?";
+    return;
+  }
+  total = data.total;
+  const body = $("jobs-body");
+  body.innerHTML = "";
+  $("jobs-empty").style.display = data.items.length ? "none" : "block";
+  $("jobs-empty").textContent = "No jobs match these filters.";
+
+  for (const job of data.items) {
+    const skills = (job.skills || []).slice(0, 6)
+      .map((s) => '<span class="chip">' + esc(s.canonical_name) + "</span>").join("");
+    const more = (job.skills || []).length > 6
+      ? '<span class="chip">+' + (job.skills.length - 6) + "</span>" : "";
+    const type = esc(job.remote_type) +
+      (job.employment_type !== "unknown" ? " · " + esc(job.employment_type.replace("_", "-")) : "");
+    body.insertAdjacentHTML("beforeend",
+      "<tr>" +
+      '<td><a href="' + esc(job.source_url) + '" target="_blank" rel="noopener">' + esc(job.title) + "</a>" +
+      '<div class="company">' + esc(job.company && job.company.name) +
+      (job.location ? " · " + esc(job.location) : "") + "</div></td>" +
+      "<td>" + (skills + more || '<span class="company">–</span>') + "</td>" +
+      "<td>" + type + "</td>" +
+      '<td class="salary">' + fmtSalary(job.salary_min, job.salary_max, job.salary_currency) + "</td>" +
+      "<td>" + fmtDate(job.posted_at || job.collected_at) + "</td>" +
+      "</tr>");
+  }
+
+  const page = Math.floor(offset / PAGE_SIZE) + 1;
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  $("page-info").textContent = total + " jobs · page " + page + " of " + pages;
+  $("prev").disabled = offset === 0;
+  $("next").disabled = offset + PAGE_SIZE >= total;
+}
+
+// ---------------------------------------------------------------- wiring
+
+$("f-apply").addEventListener("click", () => { offset = 0; loadJobs(); });
+$("f-reset").addEventListener("click", () => {
+  $("f-skill").value = ""; $("f-remote").value = ""; $("f-employment").value = "";
+  $("f-sort").value = "-posted_at"; offset = 0; loadJobs();
+});
+$("f-skill").addEventListener("keydown", (e) => { if (e.key === "Enter") { offset = 0; loadJobs(); } });
+$("prev").addEventListener("click", () => { offset = Math.max(0, offset - PAGE_SIZE); loadJobs(); });
+$("next").addEventListener("click", () => { offset += PAGE_SIZE; loadJobs(); });
+$("skill-days").addEventListener("change", loadTopSkills);
+$("skill-category").addEventListener("change", loadTopSkills);
+
+loadHealth();
+loadTopSkills();
+loadJobs();
+</script>
+</body>
+</html>
